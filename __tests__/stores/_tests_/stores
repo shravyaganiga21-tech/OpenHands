@@ -1,0 +1,79 @@
+import { describe, expect, it } from "vitest";
+import { useGoalStore } from "#/stores/goal-store";
+
+describe("goal-store", () => {
+  it("keeps the newest goal as active and preserves the old one in history", () => {
+    const conversationId = "conv-123";
+
+    useGoalStore.setState({
+      activeGoalByConversation: {},
+      historyByConversation: {},
+    });
+
+    useGoalStore.getState().setStatus(conversationId, {
+      active: true,
+      status: "running",
+      iteration: 0,
+      max_iterations: 5,
+      objective: "Old task: fix rate limits and token redaction",
+      verdict: null,
+    });
+
+    useGoalStore.getState().setStatus(conversationId, {
+      active: true,
+      status: "running",
+      iteration: 1,
+      max_iterations: 5,
+      objective: "New task: build the Neora AI Chat UI and make all skills work",
+      verdict: null,
+    });
+
+    const active = useGoalStore.getState().activeGoalByConversation[conversationId];
+    const history =
+      useGoalStore.getState().historyByConversation[conversationId] ?? [];
+
+    expect(active?.objective).toBe(
+      "New task: build the Neora AI Chat UI and make all skills work",
+    );
+    expect(history).toHaveLength(1);
+    expect(history[0]?.objective).toBe(
+      "Old task: fix rate limits and token redaction",
+    );
+  });
+
+  it("does not treat a completed old goal as the active goal", () => {
+    const conversationId = "conv-456";
+
+    useGoalStore.setState({
+      activeGoalByConversation: {},
+      historyByConversation: {},
+    });
+
+    useGoalStore.getState().setStatus(conversationId, {
+      active: true,
+      status: "running",
+      iteration: 0,
+      max_iterations: 10,
+      objective: "Current goal: finish the product launch",
+      verdict: null,
+    });
+
+    useGoalStore.getState().setStatus(conversationId, {
+      active: false,
+      status: "complete",
+      iteration: 2,
+      max_iterations: 10,
+      objective: "Old goal: security audit task with items 1 and 2",
+      verdict: {
+        score: 1,
+        complete: true,
+        missing: "",
+      },
+    });
+
+    const active = useGoalStore.getState().activeGoalByConversation[conversationId];
+
+    expect(active?.objective).toBe("Current goal: finish the product launch");
+    expect(active?.status.active).toBe(true);
+  });
+});
